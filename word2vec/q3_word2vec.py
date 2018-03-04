@@ -64,7 +64,8 @@ def softmaxCostAndGradient(predicted, target, outputVectors, dataset):
     cost = -np.log(yhat[target])
     yhat[target] -= 1
     gradPred = np.dot(yhat,outputVectors)
-    grad = np.dot(delta.reshape(np.shape(outputVectors)[0],1), predicted.reshape(1,npshape(outputVectors)[1],1)) 
+    #grad = np.dot(yhat.reshape(np.shape(outputVectors)[0],1), predicted.reshape(1,np.shape(outputVectors)[1])) 
+    grad = yhat[:, np.newaxis] * predicted[np.newaxis, :]
     ### END YOUR CODE
 
     return cost, gradPred, grad
@@ -108,6 +109,17 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset,
     outputWords = outputVectors[indices,:]
     delta = sigmoid(np.dot(outputWords,predicted) * directions)
     cost = -np.sum(np.log(delta))
+    deltaMO = 1-delta[1:]
+    gradPred = (delta[0] -1 ) * outputWords[0] +  sum((deltaMO[:,np.newaxis]) * outputWords[1:])
+    grad = np.zeros_like(outputVectors)
+
+    grad[target] = (1 - delta[0]) * predicted
+    
+    indexes = indices[1:]
+
+    for ii,k in enumerate(indexes):
+        value = (deltaMO[ii] * predicted)
+        grad[k] += value
     ### END YOUR CODE
 
     return cost, gradPred, grad
@@ -142,7 +154,13 @@ def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors,
     gradOut = np.zeros(outputVectors.shape)
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    center_word  = tokens[currentWord]
+    for context_word in contextWords:
+        target = tokens[context_word]
+        cost_, gradPred_, grad_ = word2vecCostAndGradient(inputVectors[center_word],target,outputVectors,dataset)
+        cost+=cost_
+        gradIn += gradPred_
+        gradOut += grad_
     ### END YOUR CODE
 
     return cost, gradIn, gradOut
@@ -166,7 +184,7 @@ def cbow(currentWord, C, contextWords, tokens, inputVectors, outputVectors,
     gradOut = np.zeros(outputVectors.shape)
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    
     ### END YOUR CODE
 
     return cost, gradIn, gradOut
@@ -250,4 +268,4 @@ def test_word2vec():
 
 if __name__ == "__main__":
     test_normalize_rows()
-    #test_word2vec()
+    test_word2vec()
