@@ -58,7 +58,6 @@ def softmaxCostAndGradient(predicted, target, outputVectors, dataset):
     free to reference the code you previously wrote for this
     assignment!
     """
-
     ### YOUR CODE HERE
     yhat = softmax(np.dot(predicted,outputVectors.T))
     cost = -np.log(yhat[target])
@@ -66,8 +65,6 @@ def softmaxCostAndGradient(predicted, target, outputVectors, dataset):
     gradPred = np.dot(yhat,outputVectors)
     #grad = np.dot(yhat.reshape(np.shape(outputVectors)[0],1), predicted.reshape(1,np.shape(outputVectors)[1])) 
     grad = yhat[:, np.newaxis] * predicted[np.newaxis, :]
-    ### END YOUR CODE
-
     return cost, gradPred, grad
 
 
@@ -100,8 +97,10 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset,
     # Sampling of indices is done for you. Do not modify this if you
     # wish to match the autograder and receive points!
     indices = [target]
-    indices.extend(getNegativeSamples(target, dataset, K))
-
+    indices_c = np.unique(getNegativeSamples(target, dataset, K)).tolist()
+    K = len(indices_c)
+    indices.extend(indices_c)
+    
 
     directions  = np.array([1] +  [-1 for k in xrange(K)])
 
@@ -113,7 +112,7 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset,
     gradPred = (delta[0] -1 ) * outputWords[0] +  sum((deltaMO[:,np.newaxis]) * outputWords[1:])
     grad = np.zeros_like(outputVectors)
 
-    grad[target] = (1 - delta[0]) * predicted
+    grad[target] = ( delta[0]-1) * predicted
     
     indexes = indices[1:]
 
