@@ -19,9 +19,15 @@ class PartialParse(object):
         """
         # The sentence being parsed is kept for bookkeeping purposes. Do not use it in your code.
         self.sentence = sentence
-
         ### YOUR CODE HERE
+        self.stack = ["ROOT"]
+        self.buffer = []
+        self.dependencies = []
+        self.buffer.extend(sentence)
         ### END YOUR CODE
+
+    def isParsingDone(self):
+            return  len(self.stack) == 1 and len(self.buffer)==0
 
     def parse_step(self, transition):
         """Performs a single parse step by applying the given transition to this partial parse
@@ -32,6 +38,22 @@ class PartialParse(object):
                         transition.
         """
         ### YOUR CODE HERE
+        if(transition=="S"):
+                if(len(self.buffer) == 0):
+                        return
+                b1 = self.buffer.pop(0)
+                self.stack.append(b1)
+        else:
+                if(len(self.stack)<2):
+                        return
+                if(transition=="LA"):
+                        s2 = self.stack.pop(-2)
+                        s1 = self.stack[-1] 
+                        self.dependencies.append((s1,s2))
+                if(transition=="RA"):
+                        s1 = self.stack.pop()
+                        s2 = self.stack[-1]
+                        self.dependencies.append((s2,s1))
         ### END YOUR CODE
 
     def parse(self, transitions):
@@ -66,8 +88,20 @@ def minibatch_parse(sentences, model, batch_size):
     """
 
     ### YOUR CODE HERE
+    dependencies  = []
+    partial_parses = []
+    for sentence in sentences:
+            partial_parses.append(PartialParse(sentence))
+    unfinished_parses = partial_parses[:]
+    while len(unfinished_parses) is not 0:
+            parseBatch = unfinished_parses[0:batch_size]
+            transitions = model.predict(parseBatch)
+            for i,parParser in enumerate(parseBatch):
+                    dependency = parParser.parse([transitions[i]])
+                    dependencies.insert(partial_parses.index(parParser), dependency)
+                    if(parParser.isParsingDone()):
+                            unfinished_parses.remove(parParser)
     ### END YOUR CODE
-
     return dependencies
 
 
