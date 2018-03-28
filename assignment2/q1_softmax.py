@@ -19,11 +19,16 @@ def softmax(x):
                   represented by row-vectors. (For simplicity, no need to handle 1-d
                   input as in the previous homework)
     Returns:
-        out: tf.Tensor with shape (n_sample, n_features). You need to construct this
+       out: tf.Tensor with shape (n_sample, n_features). You need to construct this
                   tensor in this problem.
     """
 
     ### YOUR CODE HERE
+    max_for_all_samples = tf.expand_dims(tf.reduce_max(x,axis=[1]),1)
+    normalized_input = tf.subtract(x,max_for_all_samples)
+    exponentials = tf.exp(normalized_input)
+    sum_of_all_samples = tf.expand_dims(tf.reduce_sum(exponentials,axis=[1]),1)
+    out = tf.divide(exponentials,sum_of_all_samples)
     ### END YOUR CODE
 
     return out
@@ -54,6 +59,9 @@ def cross_entropy_loss(y, yhat):
     """
 
     ### YOUR CODE HERE
+    y_log = tf.log(yhat)
+    cross_entropy = tf.negative(tf.multiply(tf.cast(y,dtype=tf.float32),y_log))
+    out = tf.reduce_sum(tf.reduce_sum(cross_entropy))
     ### END YOUR CODE
 
     return out
