@@ -90,6 +90,7 @@ def minibatch_parse(sentences, model, batch_size):
     ### YOUR CODE HERE
     dependencies  = []
     partial_parses = []
+    partial_parse_obj_vs_dependency = {}
     for sentence in sentences:
             parParser = PartialParse(sentence)
             partial_parses.append(parParser)
@@ -100,10 +101,13 @@ def minibatch_parse(sentences, model, batch_size):
             transitions = model.predict(parseBatch)
             for i,parParser in enumerate(parseBatch):
                     dependency = parParser.parse([transitions[i]])
-                    dependencies.insert(partial_parses.index(parParser), dependency)
+                    partial_parse_obj_vs_dependency[parParser] = dependency
                     if(parParser.isParsingDone()):
                             unfinished_parses.remove(parParser)
     ### END YOUR CODE
+    for key,value in partial_parse_obj_vs_dependency.iteritems():
+            index = partial_parses.index(key)
+            dependencies[index] = value
     return dependencies
 
 
