@@ -91,7 +91,9 @@ def minibatch_parse(sentences, model, batch_size):
     dependencies  = []
     partial_parses = []
     for sentence in sentences:
-            partial_parses.append(PartialParse(sentence))
+            parParser = PartialParse(sentence)
+            partial_parses.append(parParser)
+            dependencies.append(())
     unfinished_parses = partial_parses[:]
     while len(unfinished_parses) is not 0:
             parseBatch = unfinished_parses[0:batch_size]
