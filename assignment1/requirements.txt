@@ -1,4 +1,5 @@
 matplotlib
 scipy
 numpy
-sklearn
+scikit-learn
+tensorflow

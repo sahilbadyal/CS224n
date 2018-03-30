@@ -21,9 +21,9 @@ class Config(object):
     dropout = 0.5  # (p_drop in the handout)
     embed_size = 50
     hidden_size = 200
-    batch_size = 1024
+    batch_size = 2048
     n_epochs = 10
-    lr = 0.0005
+    lr = 0.001
 
 
 class ParserModel(Model):
@@ -84,9 +84,10 @@ class ParserModel(Model):
 
         ### YOUR CODE HERE
         feed_dict = {
-                self.input_placeholder : inputs_batch,
-                self.dropout_placeholder : dropout
+                self.input_placeholder : inputs_batch
         }
+        if(dropout is not None):
+                feed_dict[self.dropout_placeholder] = dropout
         if(labels_batch is not None):
                 feed_dict[self.labels_placeholder] = labels_batch
         ### END YOUR CODE
@@ -110,9 +111,9 @@ class ParserModel(Model):
             embeddings: tf.Tensor of shape (None, n_features*embed_size)
         """
         ### YOUR CODE HERE
-        pretrained_embeddings = tf.Variable(self.pretrained_embeddings,dtype=tf.float32,name = 'embeddings')
-        embeddings = tf.nn.embedding_lookup(pretrained_embeddings,self.input_placeholder)
-        embeddings = tf.reshape(embeddings,shape=[tf.shape(self.input_placeholder)[0],self.config.n_features * self.config.embed_size])
+        pretrained_embeddings = tf.Variable(self.pretrained_embeddings,dtype=tf.float32,name = 'pre_trained_embeddings')
+        features = tf.nn.embedding_lookup(pretrained_embeddings,self.input_placeholder)
+        embeddings = tf.reshape(features,shape=[-1,self.config.n_features * self.config.embed_size])
         ### END YOUR CODE
         return embeddings
 
@@ -137,14 +138,16 @@ class ParserModel(Model):
             pred: tf.Tensor of shape (batch_size, n_classes)
         """
         xavier_init = xavier_weight_init()
-        W = tf.Variable(xavier_init((self.config.n_features*self.config.embed_size,self.config.hidden_size)),dtype=tf.float32)
+        W = tf.Variable(xavier_init((self.config.n_features*self.config.embed_size,self.config.hidden_size)),dtype=tf.float32,name='W')
         U = tf.Variable(xavier_init((self.config.hidden_size,self.config.n_classes)),dtype=tf.float32,name='U')
-        b1 = tf.Variable(tf.zeros(self.config.hidden_size,dtype=tf.float32),dtype=tf.float32,name='b1')
-        b2 = tf.Variable(tf.zeros(self.config.n_classes,dtype=tf.float32),dtype=tf.float32,name='b2')
+        #Here actually b1  should not be initialized to zeros. As we have used Relu's adding zeros can be catasprophic and lead to dead neurons
+        b1 = tf.Variable(tf.random_uniform(shape=[self.config.hidden_size,],dtype=tf.float32),dtype=tf.float32,name='b1')
+        #b2 actually works better with zeros as zeros around softmax are not that dangerous
+        b2 = tf.Variable(tf.zeros(shape=[self.config.n_classes,],dtype=tf.float32),dtype=tf.float32,name='b2')
         x = self.add_embedding()
         ### YOUR CODE HERE
         h = tf.nn.relu(tf.add(tf.matmul(x,W),b1))
-        h_drop = tf.nn.dropout(h,(tf.subtract(tf.constant(1,dtype=tf.float32),self.dropout_placeholder)))
+        h_drop = tf.nn.dropout(h,(1-self.dropout_placeholder))
         pred = tf.add(tf.matmul(h_drop,U),b2)
         ### END YOUR CODE
         return pred
@@ -163,7 +166,7 @@ class ParserModel(Model):
             loss: A 0-d tensor (scalar)
         """
         ### YOUR CODE HERE
-        loss  =  tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(None,self.labels_placeholder, pred))
+        loss  =  tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.labels_placeholder, logits=pred))
         ### END YOUR CODE
         return loss
 
@@ -188,7 +191,7 @@ class ParserModel(Model):
             train_op: The Op for training.
         """
         ### YOUR CODE HERE
-        optimizer = tf.train.AdamOptimizer()
+        optimizer = tf.train.AdamOptimizer(self.config.lr)
         train_op = optimizer.minimize(loss)
         ### END YOUR CODE
         return train_op
@@ -201,12 +204,12 @@ class ParserModel(Model):
 
     def run_epoch(self, sess, parser, train_examples, dev_set):
         n_minibatches = 1 + len(train_examples) / self.config.batch_size
-        #prog = tf.keras.utils.Progbar(target=n_minibatches)
+        prog = tf.keras.utils.Progbar(target=n_minibatches)
         for i, (train_x, train_y) in enumerate(minibatches(train_examples, self.config.batch_size)):
             loss = self.train_on_batch(sess, train_x, train_y)
-            #prog.update(i + 1, [("train loss", loss)], force=i + 1 == n_minibatches)a
-            if(i+1==n_minibatches):
-                    print(i+1,loss)
+            prog.update(i + 1, [("train loss", loss)], force=i + 1 == n_minibatches)
+            #if(i+1==n_minibatches):
+            #        print(i+1,loss)
 
         print "Evaluating on dev set",
         dev_UAS, _ = parser.parse(dev_set)
