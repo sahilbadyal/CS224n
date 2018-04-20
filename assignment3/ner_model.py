@@ -101,8 +101,8 @@ class NERModel(Model):
             logger.info("Epoch %d out of %d", epoch + 1, self.config.n_epochs)
             # You may use the progress bar to monitor the training progress
             # Addition of progress bar will not be graded, but may help when debugging
-            prog = Progbar(target=1 + int(len(train_examples) / self.config.batch_size))
-			
+            n_minibatches = 1 + int(len(train_examples) / self.config.batch_size)
+            prog = Progbar(target=n_minibatches)
 			# The general idea is to loop over minibatches from train_examples, and run train_on_batch inside the loop
 			# Hint: train_examples could be a list containing the feature data and label data
 			# Read the doc for utils.get_minibatches to find out how to use it.
@@ -110,7 +110,9 @@ class NERModel(Model):
                         # [features, labels]. This makes expanding tuples into arguments (* operator) handy
 
             ### YOUR CODE HERE (2-3 lines)
-
+            for i,batch in enumerate(minibatches(train_examples,self.config.batch_size)):
+                    loss = self.train_on_batch(sess,*batch)
+                    prog.update(i+1,[("loss",loss)])
             ### END YOUR CODE
 
             logger.info("Evaluating on development data")

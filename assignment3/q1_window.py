@@ -34,10 +34,10 @@ class Config:
 
     TODO: Fill in what n_window_features should be, using n_word_features and window_size.
     """
-    n_word_features = 2 # Number of features for every word in the input.
+    n_word_features = 2   # Number of features for every word in the input.
     window_size = 1 # The size of the window to use.
     ### YOUR CODE HERE
-    n_window_features = 0 # The total number of features used for each window.
+    n_window_features = (2 * window_size + 1) * n_word_features # The total number of features used for each window.
     ### END YOUR CODE
     n_classes = 5
     dropout = 0.5
@@ -58,6 +58,25 @@ class Config:
         self.log_output = self.output_path + "log"
         self.conll_output = self.output_path + "window_predictions.conll"
 
+'''
+Returns a muliple self concatenated vector of start and end tokens/features
+'''
+def concat(tokenVector,numberOfTokens):
+       f = []
+       for i in xrange(numberOfTokens):
+               f.extend(tokenVector)
+       return f
+
+'''
+Returns a window of words from index start to end assuming both start and end fall in valid index range
+'''
+def getWindow(sentence,start,end):
+        f = []
+        count = start
+        for i in xrange(end-start+1):
+                f.extend(sentence[count])
+                count+=1
+        return f
 
 def make_windowed_data(data, start, end, window_size = 1):
     """Uses the input sequences in @data to construct new windowed data points.
@@ -96,9 +115,30 @@ def make_windowed_data(data, start, end, window_size = 1):
 
     windowed_data = []
     for sentence, labels in data:
-		### YOUR CODE HERE (5-20 lines)
+            ### YOUR CODE HERE (5-20 lines)
+            for index,centerWord in enumerate(sentence):
+                    last_index = len(sentence)-1
+                    min_index = index-window_size
+                    max_index = index + window_size
 
-		### END YOUR CODE
+                    numberOfStartWordsToAdd = -(min_index) if min_index < 0 else 0
+                    numberofEndWordsToAdd = max_index - last_index if max_index > last_index else 0
+
+                    first = min_index + numberOfStartWordsToAdd
+                    last = max_index - numberofEndWordsToAdd
+
+                    endFeature = concat(end,numberofEndWordsToAdd)
+                    actualWindow = getWindow(sentence,first,last)
+                    #get the start words if any
+                    feature = concat(start,numberOfStartWordsToAdd)
+                    #get the actual window from the sentence
+                    feature.extend(actualWindow)
+                    #finally add end tokens if any
+                    feature.extend(endFeature)
+
+                    windowed_data.append((feature,labels[index]))
+            ### END YOUR CODE
+    #print windowed_data
     return windowed_data
 
 class WindowModel(NERModel):
@@ -129,7 +169,10 @@ class WindowModel(NERModel):
 
         (Don't change the variable names)
         """
-        ### YOUR CODE HERE (~3-5 lines)
+        ### YOUR CODE HERE (~3-5 lines)a
+        self.input_placeholder = tf.placeholder(shape=(None,self.config.n_window_features),dtype=tf.int32)
+        self.labels_placeholder = tf.placeholder(shape=(None,),dtype=tf.int32)
+        self.dropout_placeholder = tf.placeholder(dtype=tf.float32,shape=())
 
         ### END YOUR CODE
 
@@ -153,7 +196,13 @@ class WindowModel(NERModel):
             feed_dict: The feed dictionary mapping from placeholders to values.
         """
         ### YOUR CODE HERE (~5-10 lines)
-         
+        feed_dict = {
+                self.input_placeholder : inputs_batch
+        } 
+        if labels_batch is not None:
+                feed_dict[self.labels_placeholder] = labels_batch
+        if dropout is not None and dropout > 0:
+                feed_dict[self.dropout_placeholder] = dropout
         ### END YOUR CODE
         return feed_dict
 
@@ -174,9 +223,9 @@ class WindowModel(NERModel):
             embeddings: tf.Tensor of shape (None, n_window_features*embed_size)
         """
         ### YOUR CODE HERE (!3-5 lines)
-                                                             
-                                  
-                                                                                                                 
+        pre_embeddings = tf.Variable(self.pretrained_embeddings,name='pre_embed')
+        features = tf.nn.embedding_lookup(pre_embeddings,self.input_placeholder)
+        embeddings = tf.reshape(features,[-1,self.config.n_window_features*self.config.embed_size])
         ### END YOUR CODE
         return embeddings
 
@@ -206,8 +255,19 @@ class WindowModel(NERModel):
 
         x = self.add_embedding()
         dropout_rate = self.dropout_placeholder
+        
         ### YOUR CODE HERE (~10-20 lines)
+        xavier_init = tf.contrib.layers.xavier_initializer(seed=1)
+        W = tf.get_variable(name='W',shape=[self.config.n_window_features*self.config.embed_size,self.config.hidden_size],dtype=tf.float32,initializer=xavier_init)
+        U = tf.get_variable(name='U',shape=[self.config.hidden_size,self.config.n_classes],dtype=tf.float32,initializer=xavier_init)
+        #Here actually b1  should not be initialized to zeros. As we have used Relu's adding zeros can be catasprophic and lead to dead neurons
+        b1 = tf.get_variable(shape=[self.config.hidden_size,],dtype=tf.float32,name='b1',initializer=xavier_init)
+        #b2 actually works better with zeros as zeros around softmax are not that dangerous
+        b2 = tf.Variable(tf.zeros(shape=[self.config.n_classes,],dtype=tf.float32),name='b2',dtype=tf.float32)
 
+        h = tf.nn.relu(tf.add(tf.matmul(x,W),b1))
+        h_drop = tf.nn.dropout(h,dropout_rate)
+        pred = tf.add(tf.matmul(h_drop,U),b2)
         ### END YOUR CODE
         return pred
 
@@ -225,6 +285,7 @@ class WindowModel(NERModel):
             loss: A 0-d tensor (scalar)
         """
         ### YOUR CODE HERE (~2-5 lines)
+        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.labels_placeholder,logits=pred))
                                    
         ### END YOUR CODE
         return loss
@@ -249,7 +310,8 @@ class WindowModel(NERModel):
             train_op: The Op for training.
         """
         ### YOUR CODE HERE (~1-2 lines)
-
+        optimizer = tf.train.AdamOptimizer(self.config.lr)
+        train_op = optimizer.minimize(loss)
         ### END YOUR CODE
         return train_op
 
