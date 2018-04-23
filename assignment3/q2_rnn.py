@@ -156,7 +156,7 @@ class RNNModel(NERModel):
         self.dropout_placeholder = tf.placeholder(shape=(),dtype=tf.float32)
         ### END YOUR CODE
 
-    def create_feed_dict(self, inputs_batch, mask_batch, labels_batch=None, dropout=1):
+    def create_feed_dict(self, inputs_batch, mask_batch, labels_batch=None, dropout=0):
         """Creates the feed_dict for the dependency parser.
 
         A feed_dict takes the form of:
@@ -185,8 +185,8 @@ class RNNModel(NERModel):
                 }
         if labels_batch is not None:
             feed_dict[self.labels_placeholder] = labels_batch
-        if dropout is not None and dropout > 0:
-            feed_dict[self.dropout_placeholder] = dropout
+        if dropout is not None:
+            feed_dict[self.dropout_placeholder] =  dropout
         ### END YOUR CODE
         return feed_dict
 
@@ -290,7 +290,7 @@ class RNNModel(NERModel):
                 else:
                     scope.reuse_variables()
                     output,state = cell(x[:,time_step,:],state,scope=scope)
-                dropout = tf.nn.dropout(output,1-dropout_rate)
+                dropout = tf.nn.dropout(output,1 - dropout_rate) #Need to use keep probability
                 y_t = tf.matmul(dropout,U) + b2
                 preds.append(y_t)
                 ### END YOUR CODE
